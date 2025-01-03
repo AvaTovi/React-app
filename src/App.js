@@ -1,46 +1,76 @@
-import React, {useState, useEffect} from 'react';
-import PokemonList from './PokemonList'
-import axios from 'axios'
+import React, { useEffect, useState } from 'react';
+import './App.css';
+import CurrencyRow from './CurrencyRow'
+
+const BASE_URL = 'https://api.exchangeratesapi.io/latest'
 
 function App() {
-  const [pokemon, setPokemon] = useState([])
-  const [currentPageUrl, setCurrentPageUrl] = useState("https://pokeapi.co/api/v2/pokemon")
-  const [nextPageUrl, setNextPageurl] = useState()
-  const [previousPageUrl, setPreviousPageUrl] = useState()
-  //setting up a loading page
-  const [loading, setLoading] = useCase(true)
+  const [currencyOptions, setCurrencyOptions] = useState([])
+  const [fromCurrency, setFromCurrency] = useState()
+  const [toCurrency, setToCurrency] = useState()
+  const [exchangeRate, setExchangeRate] = useState()
+  const [amount, setAmount] = useState(1)
+  const [amountInFromCurrency, setAmountInFromCurrency] = useState(true)
+
+  let toAmount, fromAmount
+  if (amountInFromCurrency) {
+    fromAmount = amount
+    toAmount = amount * exchangeRate
+  } else {
+    toAmount = amount
+    fromAmount = amount / exchangeRate
+  }
 
   useEffect(() => {
-    setLoading(true)
-    axios.get(currentPageUrl, {cancelToken: new axios.CancelToken(c => cancel =c)}).then(res => {
-    setLoading(false)
-    setNextPageUrl: (res.data.next)
-    setPreviousPageUrl(res.data.previous)
-    setPokemon(res.data.result.map(p => p.name))})
+    fetch(BASE_URL)
+    .then(res => res.json())
+    .then(data => {
+      const firstCurrency = Object.keys(data.rates)[0]
+      setCurrencyOptions([data.base, ...Object.keys(data.rates)])
+      setFromCurrency(data.base)
+      setToCurrency(firstCurrency)
+      setExchangeRate(data.rates[firstCurrency])
+    })  
+}, [])
 
-    return () => cancel.cancel()
-    //[] this makes the code not rerender itself and only runs once
-    }, [currentPageUrl])
+useEffect(() => {
+  if (fromCurrency != null && toCurrency != null) {
+    fetch(`${BASE_URL}?base=${fromCurrency}&symbols=${toCurrency}`) // Corrected the syntax here
+      .then(res => res.json())
+      .then(data => setExchangeRate(data.rates[toCurrency]));
+  }
+}, [fromCurrency, toCurrency]);
 
-    function goToNextPage() {
-      setCurrentPageUrl(nextPageUrl)
-    }
-  
-    function goToPreviousPage() {
-      setCurrentPageUrl(previousPageUrl)
-    }
+function handleFromAmountChange(e) {
+setAmount(e.target.value)
+setAmountInFromCurrency(true)
+}
 
-  if(loading) return "Loading..."
+function handleToAmountChange(e) {
+  setAmount(e.target.value)
+  setAmountInFromCurrency(true)
+  }
 
-  return (
-    //Passing the pokemon down to the PokemonList
+return (
     <>
-      <PokemonList pokemon = {pokemon} />
-      <Pagination
-      gotoNextPage={nextPageUrl ? gotoNextPage : null}
-      gotoPreviousPage={prevPageUrl ? gotoPreviousPage : null}
-    />
-  </>
-)}
+      <h1>Convert</h1>
+      <CurrencyRow 
+      currencyOptions={currencyOptions}
+      selectedCurrency={fromCurrency}
+      onChangeCurrency={e => setFromCurrency(e.target.value)}
+      onChangeAmount={handleFromAmountChange}
+      amount={fromAmount}
+      />
+      <div className="equals">=</div>
+      <CurrencyRow 
+      currencyOptions={currencyOptions}
+      selectedCurrency={toCurrency}
+      onChangeCurrency={e => setToCurrency(e.target.value)}
+      onChangeAmount={handleToAmountChange}
+      amount={toAmount}
+      />
+    </>
+  );
+}
 
 export default App;
